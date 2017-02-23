@@ -36,8 +36,9 @@
 #include "gpio.h"
 
 /* USER CODE BEGIN Includes */
+#include "Sensor.h"
+#include "Action.h"
 
-#include "Control.h"
 #undef FLASH_LATENCY_2
 #define FLASH_LATENCY_2 FLASH_LATENCY_3 // does not work otherwise
 
@@ -59,59 +60,7 @@ void SystemClock_Config(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
-/* Handle all EXTI lines */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    /* Check proper line */
-	if (GPIO_Pin == B1_Pin){ // Blue push button: start
-		do_startButton();
-	} else if (GPIO_Pin == ECHO_11_A1_EXTI1_Pin){
-		do_radarDetect(FRONT_LEFT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
 
-	} else if (GPIO_Pin == ECHO_10_A2_EXTI4_Pin){
-		do_radarDetect(FRONT_CENTER_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
-
-	} else if (GPIO_Pin == ECHO_12_A3_EXTI0_Pin){
-		do_radarDetect(FRONT_RIGHT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
-
-	} else if (GPIO_Pin == ECHO1_PC10_EXTI10_Pin){
-		do_radarDetect(RIGHT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
-
-	} else if (GPIO_Pin == ECHO2_PA15_EXTI15_Pin){
-		do_radarDetect(LEFT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
-
-	} else if (GPIO_Pin == ECHO3_PC12_EXTI12_Pin){
-		do_radarDetect(BACK_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
-
-	} else if (GPIO_Pin == CNY1_Pin){
-		do_frontEdgeDetect(RIGHT);
-
-	} else if (GPIO_Pin == CNY2_Pin){
-		do_frontEdgeDetect(LEFT); // 
-
-	} else if (0 && (GPIO_Pin == ECHO_11_A1_EXTI1_Pin)){
-		do_backEdgeDetect(LEFT);
-	}
-}
-
-
-void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
-{
-
-	if (htim == &htim10) {
-		doWakeup(0);
-	} else if (htim == &htim11) {
-		doWakeup(1);
-	} else if (htim == &htim13) {
-		doWakeup(2);
-	} else if (htim == &htim14) {
-		doWakeup(3);
-	} else {
-		// error
-	}
-// signal something
-		//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET); // sync pulse on PA_0  (arduino A0)
-		//HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
-}
 
 /* USER CODE END 0 */
 
@@ -143,10 +92,10 @@ int main(void)
 
   /* USER CODE BEGIN 2 */
 	                       
-	do_initializeControl();
+do_initializeControl();
 
 	HAL_TIM_Base_Start(&htim5); // microsecond counter just in case
-	HAL_TIM_OC_Start(&htim2, TIM_CHANNEL_1); // ultrasound pulse firing
+	HAL_TIM_OC_Start(&htim2, TIM_CHANNEL_1); // ultrasound pulse firing on A0
 	HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1); // PWM1
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // PWM2
 
@@ -157,7 +106,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-   do_stepInLoop();
+	  mainLoop();
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */

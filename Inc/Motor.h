@@ -19,5 +19,5 @@ public:
 	void drive(int rightOrLeft, int speed);
 };
 
-
+extern Motor motor;
 #endif

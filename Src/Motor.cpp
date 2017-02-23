@@ -1,5 +1,8 @@
-#include "MotorControl.h"
+#include "Motor.h"
 #include "tim.h"
+
+
+Motor motor;
 
 
 void setWheelDirection(int wheel,bool forward, bool backward)

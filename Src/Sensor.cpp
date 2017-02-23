@@ -1,72 +1,24 @@
-#include "Control.h"
-#include "MotorControl.h"
+#include "Sensor.h"
+#include "Motor.h"
 #include "tim.h"
 
 
 // module variables
-volatile State state[4] = {notStarted,0,0,0};
-State nextState[4];
-Motor motor;
+
+volatile bool OutDetect[4];
 
 volatile float radarDistances[NUM_RADAR];
 const int medianSize = 11;
 volatile char dState[20] = "";
 
 // forward definitions
-void schedWakeup(int which, int ms, State next);
-void do_action0(State next);
-void do_action1(State next);
-void do_action2(State next);
-void do_action3(State next);
+
 void timedDrive(int ms, int speed);
 void timedDrive(int ms, int rightOrLeft, int speed);
 bool isOutFront(int rightOrLeft = 0);
 bool isOutBack(int rightOrLeft = 0);
 void setDebugState(const char* state);
 void displayOutFront(void);
-
-// code
-
-void do_action0( State next)
-{
-	state[0] = next;
-	if (next == seeking) {
-		timedDrive(2000, RIGHT,400);
-	} else if (next == backRecover) {
-		timedDrive(600, -200);
-
-	}
-	if (!isOutFront()){
-		//timedDrive(500, 300);
-	}
-}
-
-
-void do_startButton()
-{
-	state[0] = startedDelaying;
-	schedWakeup(0, 1000, seeking);
-}
-
-void doWakeup(int which){
-	State next = nextState[which];
-	switch (which) {
-	case 0:
-		do_action0(next);
-		break;
-	case 1:
-		do_action1(next);
-		break;
-	case 2:
-		do_action2(next);
-		break;
-	case 3:
-		do_action3(next);
-		break;
-	//default:
-	// error
-	}
-}
 
 
 
@@ -142,7 +94,8 @@ void do_radarDetect(int n,unsigned int time)
 	}
 done:
 	radarDistances[n] = medianEntries[n][medianSize/2].distance;
-		medianTime = __HAL_TIM_GET_COUNTER(&htim5) - nStart;
+	
+	medianTime = __HAL_TIM_GET_COUNTER(&htim5) - nStart;
 	HAL_GPIO_WritePin(SYNC2_GPIO_Port, SYNC2_Pin, GPIO_PIN_RESET);
 }
 
@@ -151,6 +104,8 @@ void do_frontEdgeDetect(int leftOrRight)
 	bool bIsOutRight = (GPIO_PIN_SET == HAL_GPIO_ReadPin(CNY1_GPIO_Port, CNY1_Pin));
 	bool bIsOutLeft = (GPIO_PIN_SET == HAL_GPIO_ReadPin(CNY2_GPIO_Port, CNY2_Pin));
 	bool bIsOut = (bIsOutRight || bIsOutLeft);
+	OutDetect[FRONT_RIGHT] = bIsOutRight;
+	OutDetect[FRONT_LEFT] = bIsOutLeft;
 
 	HAL_GPIO_WritePin(LED2_D5_GPIO_Port,
 		LED2_D5_Pin,
@@ -158,67 +113,15 @@ void do_frontEdgeDetect(int leftOrRight)
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 
 		bIsOutLeft ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-	if (state[0] != backWhite && bIsOut) {
-		if (!bIsOutRight) { // left is out
-			timedDrive(500, LEFT, 1000);
-		} else if (!bIsOutLeft) {
-			timedDrive(500, RIGHT, 1000);
-		} else {
-			timedDrive(100, -1000);
-		}
-		state[0] = backWhite;
-	} else if (state[0] == backWhite && !bIsOut) {
-		timedDrive(10, 0);
-		schedWakeup(0, 20, backRecover);
-	} else if (bIsOut) {
-		timedDrive(500, -200);
-	}
+
 }
 
 void do_backEdgeDetect(int leftOrRight)
 {
 }
 
-void do_stepInLoop()
-{
-// count time in current state, should not last more than 10s
-	float frontMean = (radarDistances[FRONT_RIGHT_RADAR] + 
-		radarDistances[FRONT_LEFT_RADAR] + 
-		radarDistances[FRONT_CENTER_RADAR]) / 3;
-	displayOutFront();
-	if (state[0] != startedDelaying && state[0] != notStarted) {
-		if (frontMean > radarDistances[RIGHT_RADAR] &&
-			frontMean > radarDistances[LEFT_RADAR] &&
-			frontMean > radarDistances[BACK_RADAR]) {
-				if (frontMean < 60) {
-					//timedDrive(500, 500);
-					return;
-				}
-		}
-		//timedDrive(5000, LEFT, 500);
-	}
-}
- 
 
-void do_action1(State next)
-{
-	state[1] = next;
-	switch (next) {
-	case notStarted:
-		motor.drive(0);
-		break;
-	//default:
-	// error
-	}
-}
 
-void do_action2(State next)
-{
-}
-
-void do_action3(State next)
-{
-}
 
 void displayOutFront()
 {
@@ -232,7 +135,7 @@ void displayOutFront()
 
 bool isOutFront(int rightOrLeft)
 {
-	bool bResult;
+	bool bResult=false;
 	bool bResultRight = (GPIO_PIN_SET == HAL_GPIO_ReadPin(CNY1_GPIO_Port, CNY1_Pin));
 	bool bResultLeft = (GPIO_PIN_SET == HAL_GPIO_ReadPin(CNY2_GPIO_Port, CNY2_Pin));
 	HAL_GPIO_WritePin(LED2_D5_GPIO_Port,
@@ -252,64 +155,11 @@ bool isOutFront(int rightOrLeft)
 
 bool isOutBack(int rightOrLeft)
 {
+	return false;
 }
 
 
 
-
-void timedDrive(int ms, int speed)
-{
-		schedWakeup(1, ms, notStarted); 
-		motor.drive(speed);
-}
-
-void timedDrive(int ms, int rightOrLeft, int speed)
-{	
-		schedWakeup(1, ms, notStarted); 
-		motor.drive(rightOrLeft, speed);
-}
-
-TIM_OC_InitTypeDef * getOCConfig(int ms)
-{
-	static TIM_OC_InitTypeDef sConfigOC;
-
-	sConfigOC.OCMode = TIM_OCMODE_ACTIVE;
-	sConfigOC.Pulse = 10*ms;
-	sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-	sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-	return &sConfigOC;
-}
-
-void schedWakeup(int which, int ms, State next)
-{
-	if (which < 4) {
-		nextState[which] = next;
-	}
-	switch (which) {
-	case 0:
-		HAL_TIM_Base_Stop_IT(&htim10);
-		__HAL_TIM_SET_COUNTER(&htim10, 0);
-		HAL_TIM_OC_ConfigChannel(&htim10, getOCConfig(ms), TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim10, TIM_CHANNEL_1);	
-		break;
-	case 1:
-		HAL_TIM_Base_Stop_IT(&htim11);
-		__HAL_TIM_SET_COUNTER(&htim11, 0);
-		HAL_TIM_OC_ConfigChannel(&htim11, getOCConfig(ms), TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim11, TIM_CHANNEL_1);	
-		break;
-	case 2:
-		HAL_TIM_OC_ConfigChannel(&htim13, getOCConfig(ms), TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim13, TIM_CHANNEL_1);	
-		break;
-	case 3:
-		HAL_TIM_OC_ConfigChannel(&htim14, getOCConfig(ms), TIM_CHANNEL_1);
-		HAL_TIM_OC_Start_IT(&htim14, TIM_CHANNEL_1);	
-		break;
-	//default:
-	// error
-	}
-}
 
 void setDebugState(const char * newState)
 {
@@ -321,3 +171,36 @@ void setDebugState(const char * newState)
 	dState[i] = newState[i];
 }
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    /* Check proper line */
+	if (GPIO_Pin == B1_Pin) { // Blue push button: start
+		do_startButton();
+	} else if (GPIO_Pin == ECHO_11_A1_EXTI1_Pin) {
+		do_radarDetect(FRONT_LEFT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == ECHO_10_A2_EXTI4_Pin) {
+		do_radarDetect(FRONT_CENTER_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == ECHO_12_A3_EXTI0_Pin) {
+		do_radarDetect(FRONT_RIGHT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == ECHO1_PC10_EXTI10_Pin) {
+		do_radarDetect(RIGHT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == ECHO2_PA15_EXTI15_Pin) {
+		do_radarDetect(LEFT_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == ECHO3_PC12_EXTI12_Pin) {
+		do_radarDetect(BACK_RADAR, __HAL_TIM_GET_COUNTER(&htim2));
+
+	} else if (GPIO_Pin == CNY1_Pin) {
+		do_frontEdgeDetect(RIGHT);
+
+	} else if (GPIO_Pin == CNY2_Pin) {
+		do_frontEdgeDetect(LEFT); // 
+
+	} else if (0 && (GPIO_Pin == ECHO_11_A1_EXTI1_Pin)) {
+		do_backEdgeDetect(LEFT);
+	}
+}
