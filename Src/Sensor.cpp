@@ -1,7 +1,7 @@
 #include "Sensor.h"
 #include "Motor.h"
 #include "tim.h"
-
+#include "Action.h"
 
 // module variables
 
@@ -10,6 +10,7 @@ volatile bool OutDetect[4];
 volatile float radarDistances[NUM_RADAR];
 const int medianSize = 11;
 volatile char dState[20] = "";
+
 
 // forward definitions
 
@@ -113,7 +114,7 @@ void do_frontEdgeDetect(int leftOrRight)
 	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 
 		bIsOutLeft ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-
+	onFrontEdgeDetect(bIsOutRight, bIsOutLeft);
 }
 
 void do_backEdgeDetect(int leftOrRight)

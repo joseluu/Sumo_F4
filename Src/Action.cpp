@@ -7,7 +7,8 @@
 using namespace std;
 
 std::queue <Action> todos;
-static volatile mutex_t m_Action; // mutex
+volatile int moveCount[Last];
+volatile Move lastMove = Last;
 
 void doWakeup1()
 {
@@ -80,13 +81,31 @@ void schedWakeup(int which, int ms)
 }
 
 
+void cancelAllActions(){
+	scopedWithoutInterrupts noIT;
+
+	while (!todos.empty()){
+		todos.pop();
+	}
+}
+
 void queueAction(Action action)
 { // push to queue, will see after if need to do something
-	CpuCriticalVar();
-	CpuEnterCritical();
+	scopedWithoutInterrupts noIT;
+
 	todos.push(action);
-	CpuExitCritical();
 }
+
+void doUTurn(Move side)
+{
+	queueAction(Action(side, 1500)); 
+}
+
+void doQuarterTurn(Move side)
+{
+	queueAction(Action(side, 1200)); 
+}
+
 
 void doSeek(){
 	float min_dist = 999;
@@ -110,17 +129,22 @@ void doSeek(){
 		queueAction(Action(Fwd, 1000));
 		break;
 	case RIGHT_RADAR:
-		queueAction(Action(Right, 200));
+		doQuarterTurn(Right);
 		queueAction(Action(Fwd, 1000));
 		break;
 	case LEFT_RADAR:
-		queueAction(Action(Left, 200));
+		doQuarterTurn(Left);
 		queueAction(Action(Fwd, 1000));
 		break;
 	case BACK_RADAR:
-		queueAction(Action(Left, 500));
+		doUTurn(Left);
 		queueAction(Action(Seek, 0));
 		break;
+	}
+}
+
+void recordAction(Action action){
+	if (lastMove != action.move){
 	}
 }
 
@@ -132,15 +156,19 @@ int executeAction(Action action){
 		motor.drive(0);
 		break;
 	case Fwd:
+		recordAction(action);
 		motor.drive(256);
 		break;
 	case Back:
 		motor.drive(-256);
+		recordAction(action);
 		break;
 	case Left:
+		recordAction(action);
 		motor.drive(LEFT, 256);
 		break;
 	case Right:
+		recordAction(action);
 		motor.drive(RIGHT, 256);
 		break;
 	case Seek:
@@ -155,11 +183,11 @@ int executeAction(Action action){
 
 int checkTodo()
 {
-	CpuCriticalVar();
-	CpuEnterCritical();
+	CpuInterruptMask();
+	CpuWithoutInterrupts();
 	//lock_mutex(&m_Action);
 	if (todos.empty()) {
-		CpuExitCritical();
+		CpuRestoreInterrupts();
 		if (started) {
 			queueAction(Action(Seek, 0));
 		}
@@ -169,7 +197,7 @@ int checkTodo()
 	Action action;
 	action = todos.front();
 	todos.pop();
-	CpuExitCritical();
+	CpuRestoreInterrupts();
 	//unlock_mutex;
 
 	return executeAction(action);
@@ -188,11 +216,18 @@ void do_startButton(void)
 	queueAction(Action(Start, 0));
 }
 
+bool cancel = false;
+
 void mainLoop(){
 	int time_ms;
 	while(1) {
 		time_ms= checkTodo();
-		HAL_Delay(time_ms+1);
+		cancel = false;
+		HAL_Delay(1);
+		while ((time_ms > 0) && !cancel){
+			HAL_Delay(10);
+			time_ms -= 10;
+		}
 	}
 }
 
@@ -202,3 +237,19 @@ void timedDrive(int ms, int speed)
 	motor.drive(speed);
 }
 
+void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft){
+	cancel = true;
+	cancelAllActions();
+	if (bIsOutRight && bIsOutLeft) {
+		queueAction(Action(Back, 300));
+		doUTurn(Left);
+	} else if (bIsOutRight) {
+		queueAction(Action(Back, 300));
+		doQuarterTurn(Left);
+	} else if (bIsOutLeft) {
+		queueAction(Action(Back, 300));
+		doQuarterTurn(Right);
+	} else {
+		// bug ?
+	}
+}

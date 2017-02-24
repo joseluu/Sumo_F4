@@ -19,7 +19,8 @@ typedef  enum {
 	Right,
 	Left,
 	Seek,
-	Start
+	Start,
+	Last
  } Move;
 
 class Action {
@@ -41,7 +42,7 @@ extern  std::queue<Action > todos;
 
 void do_startButton(void);
 
-
+void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft);
 void doWakeup0(void);
 void doWakeup1(void);
 void doWakeup2(void);

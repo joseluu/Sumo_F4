@@ -1,7 +1,11 @@
 #include "Mutex.h"
 #include "stm32f4xx_hal.h"
 
+
+int scopedWithoutInterrupts::enterCount = 0;
+
 #if 0
+// many tests, unsuccessful
 void lock_mutex(volatile mutex_t* mutex)
 {
 	int result;
@@ -36,8 +40,7 @@ void unlock_mutex(volatile mutex_t* mutex)
 	    : [r0] "=r" (mutex)
 	    : [unlocked] "r" (unlocked));
 }
-
-#elsevoid lock_mutex(volatile mutex_t* mutex)
+void lock_mutex(volatile mutex_t* mutex)
 {
 	int result;
 	const uint32_t locked = LOCKED;
