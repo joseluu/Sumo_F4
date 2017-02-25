@@ -8,7 +8,7 @@
 volatile bool OutDetect[4];
 
 volatile float radarDistances[NUM_RADAR];
-const int medianSize = 31;
+const int medianSize = 41;
 volatile char dState[20] = "";
 
 
@@ -98,6 +98,7 @@ done:
 	
 	medianTime = __HAL_TIM_GET_COUNTER(&htim5) - nStart;
 	HAL_GPIO_WritePin(SYNC2_GPIO_Port, SYNC2_Pin, GPIO_PIN_RESET);
+	onRadarDetect();
 }
 
 void do_frontEdgeDetect(int leftOrRight)

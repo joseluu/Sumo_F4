@@ -106,37 +106,61 @@ void doQuarterTurn(Move side)
 	queueAction(Action(side, 500)); 
 }
 
-
-void doSeek(){
+int findMin(){
 	float min_dist = 999;
 	int min_index = 0;
-	for (int i = 0; i < NUM_RADAR;i++){
-		if (i != FRONT_RIGHT_RADAR){
+	for (int i = 0; i < NUM_RADAR; i++) {
+		if (i != FRONT_RIGHT_RADAR) {
 			if ((radarDistances[i] < min_dist) && (radarDistances[i] > 1)) {
 				min_dist = radarDistances[i];
 				min_index = i;
 			}
 		}
 	}
+	return min_index;
+}
+
+
+volatile bool started;
+
+volatile bool cancel = false;
+
+void doSeek(void);
+
+void onRadarDetect(){
+	static int prevIndex = -1;
+	if (started){
+		int min_index = findMin();
+		if (min_index != prevIndex){
+			prevIndex = min_index;
+			cancel = true;
+			cancelAllActions();
+			doSeek();
+		}
+	}
+}
+
+void doSeek(){
+	int min_index = findMin();
 	switch (min_index) {
 	case FRONT_RIGHT_RADAR:
 		queueAction(Action(Right, 50));
-		queueAction(Action(Fwd, 500));
+		queueAction(Action(Fwd, 1000));
 		break;
 	case FRONT_CENTER_RADAR:
-		queueAction(Action(Fwd, 500));
+		queueAction(Action(Fwd, 1000));
 		break;
 	case FRONT_LEFT_RADAR:
 		queueAction(Action(Left, 50));
-		queueAction(Action(Fwd, 500));
+		queueAction(Action(Fwd, 1000));
 		break;
 	case RIGHT_RADAR:
 		doQuarterTurn(Right);
-		queueAction(Action(Fwd, 500));
+		queueAction(Action(Fwd, 1000));
 		break;
 	case LEFT_RADAR:
 		doQuarterTurn(Left);
-		queueAction(Action(Fwd, 500));
+		queueAction(Action(Fwd, 1000));
 		break;
 	case BACK_RADAR:
 		doUTurn(Left);
@@ -150,7 +174,6 @@ void recordAction(Action action){
 	}
 }
 
-volatile bool started;
 
 int executeAction(Action action){
 	switch (action.move) {
@@ -234,7 +257,6 @@ void do_startButton(void)
 
 }
 
-bool cancel = false;
 
 void mainLoop(){
 	int time_ms;
@@ -263,13 +285,13 @@ void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft){
 		cancel = true;
 		cancelAllActions();
 		if (bIsOutRight && bIsOutLeft) {
-			queueAction(Action(Back, 200));
+			queueAction(Action(Back, 300));
 			doUTurn(Left);
 		} else if (bIsOutRight) {
-			queueAction(Action(Back, 100));
+			queueAction(Action(Back, 300));
 			doQuarterTurn(Left);
 		} else if (bIsOutLeft) {
-			queueAction(Action(Back, 100));
+			queueAction(Action(Back, 300));
 			doQuarterTurn(Right);
 		} else {
 			// bug ?

@@ -43,6 +43,7 @@ extern  std::queue<Action > todos;
 void do_startButton(void);
 
 void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft);
+void onRadarDetect(void);
 void doWakeup0(void);
 void doWakeup1(void);
 void doWakeup2(void);
