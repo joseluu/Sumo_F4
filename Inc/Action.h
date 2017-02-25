@@ -27,12 +27,17 @@ class Action {
 public: 
 	Move move;
 	int time_ms;
+	bool keepPlan;
 
 	Action()
 		: move(Stop)
-		, time_ms(0) {}
+		, time_ms(0),keepPlan(false) {}
 	;
-	Action(Move move, int time_ms) : move( move), time_ms(time_ms)
+	Action(Move move, int time_ms) : move(move), time_ms(time_ms), keepPlan(false)
+	{
+	}
+	;
+	Action(Move move, int time_ms, bool keep) : move(move), time_ms(time_ms), keepPlan(keep)
 	{
 	}
 	;

@@ -96,14 +96,30 @@ void queueAction(Action action)
 	todos.push(action);
 }
 
+#define UTURN_MS 600
+#define QTURN_MS 520
+
+#define UTURN UTURN_MS +(side==Right?450:0)
+#define QTURN QTURN_MS + (side == Right ? 80 : 0)
+
+void doUTurn(Move side, bool keep)
+{
+	queueAction(Action(side, UTURN, keep)); 
+}
+
 void doUTurn(Move side)
 {
-	queueAction(Action(side, 1000)); 
+	queueAction(Action(side, UTURN)); 
+}
+
+void doQuarterTurn(Move side,bool keep)
+{
+	queueAction(Action(side, QTURN, keep)); 
 }
 
 void doQuarterTurn(Move side)
 {
-	queueAction(Action(side, 500)); 
+	queueAction(Action(side, QTURN)); 
 }
 
 int findMin(){
@@ -124,18 +140,23 @@ int findMin(){
 volatile bool started;
 
 volatile bool cancel = false;
+volatile bool keepPlan = false;
 
 void doSeek(void);
 
 void onRadarDetect(){
 	static int prevIndex = -1;
-	if (started){
-		int min_index = findMin();
-		if (min_index != prevIndex){
-			prevIndex = min_index;
-			cancel = true;
-			cancelAllActions();
-			doSeek();
+	static int count;
+	count++;
+	if ((count % 30) == 0){
+		if (started && !keepPlan){
+			int min_index = findMin();
+			if (min_index != prevIndex){
+				prevIndex = min_index;
+				cancel = true;
+				cancelAllActions();
+				doSeek();
+			}
 		}
 	}
 }
@@ -144,26 +165,28 @@ void doSeek(){
 	int min_index = findMin();
 	switch (min_index) {
 	case FRONT_RIGHT_RADAR:
-		queueAction(Action(Right, 50));
+		queueAction(Action(Right, 50,true));
 		queueAction(Action(Fwd, 1000));
 		break;
 	case FRONT_CENTER_RADAR:
 		queueAction(Action(Fwd, 1000));
 		break;
 	case FRONT_LEFT_RADAR:
-		queueAction(Action(Left, 50));
+		queueAction(Action(Left, 50,true));
 		queueAction(Action(Fwd, 1000));
 		break;
 	case RIGHT_RADAR:
-		doQuarterTurn(Right);
+		doQuarterTurn(Right,false);
 		queueAction(Action(Fwd, 1000));
 		break;
 	case LEFT_RADAR:
-		doQuarterTurn(Left);
+		doQuarterTurn(Left,false);
 		queueAction(Action(Fwd, 1000));
 		break;
 	case BACK_RADAR:
-		doUTurn(Left);
+		static bool bLeft;
+		bLeft = !bLeft;
+		doUTurn((bLeft?Left:Right),false);
 		queueAction(Action(Seek, 0));
 		break;
 	}
@@ -176,6 +199,7 @@ void recordAction(Action action){
 
 
 int executeAction(Action action){
+	keepPlan = action.keepPlan;
 	switch (action.move) {
 	case Stop:
 		motor.drive(0);
@@ -254,7 +278,6 @@ void do_startButton(void)
 	queueAction(Action(Fwd, 500));
 	queueAction(Action(Stop, 5000));
 #endif
-
 }
 
 
@@ -285,14 +308,14 @@ void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft){
 		cancel = true;
 		cancelAllActions();
 		if (bIsOutRight && bIsOutLeft) {
-			queueAction(Action(Back, 300));
-			doUTurn(Left);
+			queueAction(Action(Back, 150,true));
+			doUTurn(Left,true);
 		} else if (bIsOutRight) {
-			queueAction(Action(Back, 300));
-			doQuarterTurn(Left);
+			queueAction(Action(Back, 100,true));
+			doQuarterTurn(Left,true);
 		} else if (bIsOutLeft) {
-			queueAction(Action(Back, 300));
-			doQuarterTurn(Right);
+			queueAction(Action(Back, 100,true));
+			doQuarterTurn(Right,true);
 		} else {
 			// bug ?
 		}
