@@ -98,12 +98,12 @@ void queueAction(Action action)
 
 void doUTurn(Move side)
 {
-	queueAction(Action(side, 1500)); 
+	queueAction(Action(side, 1000)); 
 }
 
 void doQuarterTurn(Move side)
 {
-	queueAction(Action(side, 1200)); 
+	queueAction(Action(side, 500)); 
 }
 
 
@@ -111,30 +111,32 @@ void doSeek(){
 	float min_dist = 999;
 	int min_index = 0;
 	for (int i = 0; i < NUM_RADAR;i++){
-		if (radarDistances[i]< min_dist) {
-			min_dist = radarDistances[i];
-			min_index = i;
+		if (i != FRONT_RIGHT_RADAR){
+			if ((radarDistances[i] < min_dist) && (radarDistances[i] > 1)) {
+				min_dist = radarDistances[i];
+				min_index = i;
+			}
 		}
 	}
 	switch (min_index) {
 	case FRONT_RIGHT_RADAR:
 		queueAction(Action(Right, 50));
-		queueAction(Action(Fwd, 1000));
+		queueAction(Action(Fwd, 500));
 		break;
 	case FRONT_CENTER_RADAR:
-		queueAction(Action(Fwd, 1000));
+		queueAction(Action(Fwd, 500));
 		break;
 	case FRONT_LEFT_RADAR:
 		queueAction(Action(Left, 50));
-		queueAction(Action(Fwd, 1000));
+		queueAction(Action(Fwd, 500));
 		break;
 	case RIGHT_RADAR:
 		doQuarterTurn(Right);
-		queueAction(Action(Fwd, 1000));
+		queueAction(Action(Fwd, 500));
 		break;
 	case LEFT_RADAR:
 		doQuarterTurn(Left);
-		queueAction(Action(Fwd, 1000));
+		queueAction(Action(Fwd, 500));
 		break;
 	case BACK_RADAR:
 		doUTurn(Left);
@@ -212,8 +214,24 @@ void doWakeup0()
 
 void do_startButton(void)
 {
+#if 1
 	queueAction(Action(Stop, 5000));
 	queueAction(Action(Start, 0));
+#else
+// calibration cycle
+	queueAction(Action(Stop, 1000));
+	queueAction(Action(Fwd, 500));
+	doQuarterTurn(Left);
+	queueAction(Action(Fwd, 500));
+	doUTurn(Right);
+	queueAction(Action(Fwd, 1000));
+	doUTurn(Left);
+	queueAction(Action(Fwd, 500));
+	doQuarterTurn(Left);
+	queueAction(Action(Fwd, 500));
+	queueAction(Action(Stop, 5000));
+#endif
+
 }
 
 bool cancel = false;
@@ -238,18 +256,23 @@ void timedDrive(int ms, int speed)
 }
 
 void onFrontEdgeDetect(bool bIsOutRight, bool bIsOutLeft){
-	cancel = true;
-	cancelAllActions();
-	if (bIsOutRight && bIsOutLeft) {
-		queueAction(Action(Back, 300));
-		doUTurn(Left);
-	} else if (bIsOutRight) {
-		queueAction(Action(Back, 300));
-		doQuarterTurn(Left);
-	} else if (bIsOutLeft) {
-		queueAction(Action(Back, 300));
-		doQuarterTurn(Right);
-	} else {
-		// bug ?
+	if (started) {
+		if (!bIsOutRight && !bIsOutLeft) {
+			return;
+		}
+		cancel = true;
+		cancelAllActions();
+		if (bIsOutRight && bIsOutLeft) {
+			queueAction(Action(Back, 200));
+			doUTurn(Left);
+		} else if (bIsOutRight) {
+			queueAction(Action(Back, 100));
+			doQuarterTurn(Left);
+		} else if (bIsOutLeft) {
+			queueAction(Action(Back, 100));
+			doQuarterTurn(Right);
+		} else {
+			// bug ?
+		}
 	}
 }

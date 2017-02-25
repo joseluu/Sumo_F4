@@ -8,7 +8,7 @@
 volatile bool OutDetect[4];
 
 volatile float radarDistances[NUM_RADAR];
-const int medianSize = 11;
+const int medianSize = 31;
 volatile char dState[20] = "";
 
 
